@@ -10,7 +10,7 @@ import {
   databaseExists,
   command,
   query
-} from '../language-cms.js';
+} from './language-cms.js';
 
 const BASE_URL = 'http://localhost:2480';
 const AUTH = 'Basic ' + btoa('root:playwithdata');
@@ -158,12 +158,13 @@ class CourseImporter {
     }
 
     // Create base track with uid
+    // Note: LINK fields need RID directly in SQL, not via parameters
     const baseTrack = await command(this.db, `
       INSERT INTO BaseTrack SET
         uid = :uid,
         name = :name,
         lang = :lang,
-        course = :courseRid,
+        course = ${courseData.baseRid},
         \`order\` = :order,
         createdAt = sysdate(),
         updatedAt = sysdate()
@@ -171,7 +172,6 @@ class CourseImporter {
       uid: payload.id,
       name: payload.name,
       lang: courseData.baseLang.replace('_', '-'),
-      courseRid: courseData.baseRid,
       order: payload.position || 0
     });
 
@@ -183,8 +183,8 @@ class CourseImporter {
     const hostTrack = await command(this.db, `
       INSERT INTO HostTrack SET
         uid = :uid,
-        baseTrack = :baseTrackRid,
-        hostCourse = :hostCourseRid,
+        baseTrack = ${baseTrack.result[0]['@rid']},
+        hostCourse = ${courseData.hostRid},
         hostCountry = :hostCountry,
         hostLang = :hostLang,
         name = :name,
@@ -192,8 +192,6 @@ class CourseImporter {
         updatedAt = sysdate()
     `, {
       uid: payload.id,
-      baseTrackRid: baseTrack.result[0]['@rid'],
-      hostCourseRid: courseData.hostRid,
       hostCountry: courseData.hostCountry,
       hostLang: courseData.hostLang,
       name: payload.name
@@ -223,7 +221,7 @@ class CourseImporter {
         uid = :uid,
         name = :name,
         lang = :lang,
-        track = :trackRid,
+        track = ${trackData.baseRid},
         \`order\` = :order,
         createdAt = sysdate(),
         updatedAt = sysdate()
@@ -231,7 +229,6 @@ class CourseImporter {
       uid: payload.id,
       name: payload.name,
       lang: courseData.baseLang.replace('_', '-'),
-      trackRid: trackData.baseRid,
       order: payload.position || 0
     });
 
@@ -244,8 +241,8 @@ class CourseImporter {
     const hostDeck = await command(this.db, `
       INSERT INTO HostDeck SET
         uid = :uid,
-        baseDeck = :baseDeckRid,
-        hostTrack = :hostTrackRid,
+        baseDeck = ${baseDeck.result[0]['@rid']},
+        hostTrack = ${trackData.hostRid},
         hostCountry = :hostCountry,
         hostLang = :hostLang,
         name = :name,
@@ -253,8 +250,6 @@ class CourseImporter {
         updatedAt = sysdate()
     `, {
       uid: payload.id,
-      baseDeckRid: baseDeck.result[0]['@rid'],
-      hostTrackRid: trackData.hostRid,
       hostCountry: courseData.hostCountry,
       hostLang: courseData.hostLang,
       name: payload.name
@@ -276,11 +271,12 @@ class CourseImporter {
 
     if (!baseCardRid) {
       // Create new base card with uid
+      // Note: LINK fields need RID directly in SQL, not via parameters
       const baseCard = await command(this.db, `
         INSERT INTO BaseCard SET
           uid = :uid,
           text = :text,
-          deck = :deckRid,
+          deck = ${deckData.baseRid},
           countryAffinity = :countryAffinity,
           \`order\` = :order,
           cloze_text = :clozeText,
@@ -289,7 +285,6 @@ class CourseImporter {
       `, {
         uid: payload.base_card,
         text: payload.text,
-        deckRid: deckData.baseRid,
         countryAffinity: null,
         order: payload.position || 0,
         clozeText: payload.cloze_text || null
@@ -299,11 +294,12 @@ class CourseImporter {
     }
 
     // Create host card with uid
+    // Note: LINK fields (baseCard, hostDeck) need RID directly in SQL
     const result = await command(this.db, `
       INSERT INTO HostCard SET
         uid = :uid,
-        baseCard = :baseCardRid,
-        hostDeck = :hostDeckRid,
+        baseCard = ${baseCardRid},
+        hostDeck = ${deckData.hostRid},
         hostCountry = :hostCountry,
         hostLang = :hostLang,
         translation = :translation,
@@ -314,8 +310,6 @@ class CourseImporter {
         updatedAt = sysdate()
     `, {
       uid: payload.id,
-      baseCardRid,
-      hostDeckRid: deckData.hostRid,
       hostCountry: deckData.courseData.hostCountry,
       hostLang: deckData.courseData.hostLang,
       translation: payload.translation || null,

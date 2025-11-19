@@ -639,6 +639,65 @@ class LanguageCMS {
     };
   }
 
+  async getDeckWithCards(deckUid) {
+    // Fetch deck with all host cards in a SINGLE SQL query using nested projections
+    // This leverages LINK type expansion to join data directly in the database
+    const result = await query(this.db, `
+      SELECT
+        @rid,
+        uid,
+        name,
+        hostCountry,
+        hostLang,
+        (SELECT
+          @rid as hostCardRid,
+          uid,
+          translation,
+          explanation1,
+          explanation2,
+          explanation3,
+          baseCard.uid as baseUid,
+          baseCard.text as text,
+          baseCard.cloze_text as clozeText,
+          baseCard.pronunciation as pronunciation,
+          baseCard.\`order\` as \`order\`
+         FROM HostCard
+         WHERE hostDeck = $parent.$current
+         ORDER BY baseCard.\`order\`) as cards
+      FROM HostDeck
+      WHERE uid = :deckUid
+    `, { deckUid });
+
+    return result.result[0] || null;
+  }
+
+  async getDeckWithCardsByRid(deckRid) {
+    // Fetch deck with all host cards by RID
+    const result = await query(this.db, `
+      SELECT
+        @rid,
+        uid,
+        name,
+        hostCountry,
+        hostLang,
+        (SELECT
+          @rid as hostCardRid,
+          uid,
+          translation,
+          explanation1,
+          baseCard.uid as baseUid,
+          baseCard.text as text,
+          baseCard.cloze_text as clozeText
+         FROM HostCard
+         WHERE hostDeck = $parent.$current
+         ORDER BY baseCard.\`order\`) as cards
+      FROM HostDeck
+      WHERE @rid = :deckRid
+    `, { deckRid });
+
+    return result.result[0] || null;
+  }
+
   async searchCards(hostLang, searchText) {
     // Get all host cards for the language
     const hostResult = await query(this.db, `

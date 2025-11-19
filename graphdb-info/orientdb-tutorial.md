@@ -19,8 +19,12 @@ OrientDB Tutorial 1 of 5: Getting Started - by Petter Graf
 
 
 
+Using Graph Functions in OrientDB (17 mins)
+    https://www.youtube.com/watch?v=L0Bkhk41-Lg
 
 
+OrientDB visualization: maximize data insight with KeyLines
+    https://www.youtube.com/watch?v=rQ-CbUWwUso
 
 OrientDB - the 2nd generation of (MultiModel) NoSQL by Luigi Dell'Aquila
 - https://www.youtube.com/watch?v=kpLqfFGubKM
