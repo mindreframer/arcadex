@@ -122,6 +122,27 @@ export async function commandWithSession(database, sessionId, sql, params = null
   return res.json();
 }
 
+export async function queryWithSession(database, sessionId, sql, params = null) {
+  const body = {
+    language: 'sql',
+    command: sql
+  };
+  if (params) {
+    body.params = params;
+  }
+
+  const res = await fetch(`${BASE_URL}/api/v1/query/${database}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': AUTH,
+      'arcadedb-session-id': sessionId
+    },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
 // Generate unique database name for test isolation
 export function uniqueDbName(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
