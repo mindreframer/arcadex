@@ -27,7 +27,8 @@ defmodule Arcadex.MixProject do
     [
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url},
-      maintainers: ["Roman Heinrich"]
+      maintainers: ["Roman Heinrich"],
+      files: ~w(lib test .formatter.exs mix.exs README.md LICENSE CHANGELOG.md)
     ]
   end
 
