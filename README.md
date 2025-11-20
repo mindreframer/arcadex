@@ -1,5 +1,8 @@
 # Arcadex
 
+[![Hex.pm](https://img.shields.io/hexpm/v/arcadex.svg)](https://hex.pm/packages/arcadex)
+[![CI](https://github.com/mindreframer/arcadex/actions/workflows/ci.yml/badge.svg)](https://github.com/mindreframer/arcadex/actions/workflows/ci.yml)
+
 A lean Elixir wrapper for ArcadeDB's REST API with connection pooling, transactions, and database switching.
 
 ## Features
