@@ -257,6 +257,32 @@ defmodule Arcadex do
   @spec execute!(Conn.t(), String.t(), String.t(), map(), keyword()) :: list()
   defdelegate execute!(conn, language, command, params \\ %{}, opts \\ []), to: Query
 
+  # Async
+
+  @doc """
+  Execute command asynchronously (fire and forget).
+
+  Returns `:ok` immediately without waiting for the command to complete.
+  The result is logged on the server side.
+
+  Returns `:ok` on success or `{:error, %Arcadex.Error{}}` on failure.
+
+  ## Options
+
+    * `:limit` - Maximum number of results to return
+    * `:retries` - Number of retry attempts for transient failures
+    * `:serializer` - Result format: "record", "graph", or "studio"
+
+  ## Examples
+
+      :ok = Arcadex.command_async(conn, "INSERT INTO Log SET event = 'audit'")
+
+      :ok = Arcadex.command_async(conn, "INSERT INTO Log SET event = :event", %{event: "login"})
+
+  """
+  @spec command_async(Conn.t(), String.t(), map(), keyword()) :: :ok | {:error, Arcadex.Error.t()}
+  defdelegate command_async(conn, sql, params \\ %{}, opts \\ []), to: Query
+
   # Transactions
 
   @doc """

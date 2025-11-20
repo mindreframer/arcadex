@@ -290,6 +290,50 @@ defmodule Arcadex.Query do
     end
   end
 
+  @doc """
+  Execute command asynchronously (fire and forget).
+
+  Returns `:ok` immediately without waiting for the command to complete.
+  The result is logged on the server side.
+
+  Returns `:ok` on success or `{:error, %Arcadex.Error{}}` on failure.
+
+  ## Parameters
+
+    * `conn` - Connection context
+    * `sql` - SQL command string
+    * `params` - Optional map of parameters (default: empty map)
+    * `opts` - Optional keyword list of options
+
+  ## Options
+
+    * `:limit` - Maximum number of results to return
+    * `:retries` - Number of retry attempts for transient failures
+    * `:serializer` - Result format: "record", "graph", or "studio"
+
+  ## Examples
+
+      iex> Arcadex.Query.command_async(conn, "INSERT INTO Log SET event = 'audit'")
+      :ok
+
+      iex> Arcadex.Query.command_async(conn, "INSERT INTO Log SET event = :event", %{event: "login"})
+      :ok
+
+      iex> Arcadex.Query.command_async(conn, "INSERT INTO Log SET event = 'audit'", %{}, retries: 3)
+      :ok
+
+  """
+  @spec command_async(Conn.t(), String.t(), map(), execute_opts()) :: :ok | {:error, Error.t()}
+  def command_async(%Conn{} = conn, sql, params \\ %{}, opts \\ []) do
+    opts = Keyword.put(opts, :await_response, false)
+    body = build_body("sql", sql, params, opts)
+
+    case Client.post(conn, "/api/v1/command/#{conn.database}", body) do
+      {:ok, _} -> :ok
+      {:error, error} -> {:error, error}
+    end
+  end
+
   # Private Functions
 
   @doc false
