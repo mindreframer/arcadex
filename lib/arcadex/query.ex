@@ -155,6 +155,73 @@ defmodule Arcadex.Query do
     end
   end
 
+  @doc """
+  Execute SQL script (multiple statements with LET/RETURN).
+
+  Uses 'sqlscript' language to execute multiple SQL statements
+  with variable assignment and return values.
+
+  Returns `{:ok, results}` or `{:error, %Arcadex.Error{}}`.
+
+  ## Parameters
+
+    * `conn` - Connection context
+    * `script` - SQL script string with LET/RETURN statements
+    * `params` - Optional map of parameters (default: empty map)
+    * `opts` - Optional keyword list of options
+
+  ## Options
+
+    * `:limit` - Maximum number of results to return
+    * `:retries` - Number of retry attempts for transient failures
+    * `:serializer` - Result format: "record", "graph", or "studio"
+
+  ## Examples
+
+      iex> Arcadex.Query.script(conn, \"""
+      ...>   LET user = SELECT FROM User WHERE name = :name;
+      ...>   LET orders = SELECT FROM Order WHERE user = $user[0].@rid;
+      ...>   RETURN { user: $user, orders: $orders }
+      ...> \""", %{name: "John"})
+      {:ok, [%{"user" => [...], "orders" => [...]}]}
+
+      iex> Arcadex.Query.script(conn, "LET x = SELECT 1; RETURN $x")
+      {:ok, [1]}
+
+  """
+  @spec script(Conn.t(), String.t(), map(), execute_opts()) ::
+          {:ok, list()} | {:error, Error.t()}
+  def script(%Conn{} = conn, script, params \\ %{}, opts \\ []) do
+    body = build_body("sqlscript", script, params, opts)
+
+    case Client.post(conn, "/api/v1/command/#{conn.database}", body) do
+      {:ok, %{"result" => result}} -> {:ok, result}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  @doc """
+  Execute SQL script. Raises on error.
+
+  Returns the result list directly or raises `Arcadex.Error`.
+
+  ## Examples
+
+      iex> Arcadex.Query.script!(conn, "LET x = SELECT 1; RETURN $x")
+      [1]
+
+      iex> Arcadex.Query.script!(conn, "INVALID SCRIPT")
+      ** (Arcadex.Error) Syntax error
+
+  """
+  @spec script!(Conn.t(), String.t(), map(), execute_opts()) :: list()
+  def script!(%Conn{} = conn, script, params \\ %{}, opts \\ []) do
+    case script(conn, script, params, opts) do
+      {:ok, result} -> result
+      {:error, error} -> raise error
+    end
+  end
+
   # Private Functions
 
   @doc false

@@ -162,6 +162,49 @@ defmodule Arcadex do
   @spec command!(Conn.t(), String.t(), map(), keyword()) :: list()
   defdelegate command!(conn, sql, params \\ %{}, opts \\ []), to: Query
 
+  # Script
+
+  @doc """
+  Execute SQL script (multiple statements with LET/RETURN).
+
+  Uses 'sqlscript' language to execute multiple SQL statements
+  with variable assignment and return values.
+
+  Returns `{:ok, results}` or `{:error, %Arcadex.Error{}}`.
+
+  ## Options
+
+    * `:limit` - Maximum number of results to return
+    * `:retries` - Number of retry attempts for transient failures
+    * `:serializer` - Result format: "record", "graph", or "studio"
+
+  ## Examples
+
+      {:ok, result} = Arcadex.script(conn, \"""
+        LET user = SELECT FROM User WHERE name = :name;
+        LET orders = SELECT FROM Order WHERE user = $user[0].@rid;
+        RETURN { user: $user, orders: $orders }
+      \""", %{name: "John"})
+
+  """
+  @spec script(Conn.t(), String.t(), map(), keyword()) ::
+          {:ok, list()} | {:error, Arcadex.Error.t()}
+  defdelegate script(conn, script, params \\ %{}, opts \\ []), to: Query
+
+  @doc """
+  Execute SQL script. Raises on error.
+
+  Returns the result list directly or raises `Arcadex.Error`.
+
+  ## Examples
+
+      Arcadex.script!(conn, "LET x = SELECT 1; RETURN $x")
+      [1]
+
+  """
+  @spec script!(Conn.t(), String.t(), map(), keyword()) :: list()
+  defdelegate script!(conn, script, params \\ %{}, opts \\ []), to: Query
+
   # Transactions
 
   @doc """
