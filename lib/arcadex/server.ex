@@ -6,7 +6,7 @@ defmodule Arcadex.Server do
   These operations use the `/api/v1/server` and `/api/v1/exists` endpoints.
   """
 
-  alias Arcadex.{Conn, Client, Error}
+  alias Arcadex.{Client, Conn, Error}
 
   @doc """
   Create a new database.

@@ -1,7 +1,7 @@
 defmodule Arcadex.QueryOptionsTest do
   use ExUnit.Case, async: true
 
-  alias Arcadex.{Query, Conn}
+  alias Arcadex.{Conn, Query}
 
   setup do
     bypass = Bypass.open()

@@ -6,7 +6,7 @@ defmodule Arcadex.Transaction do
   and a wrapper function that auto-commits on success and rolls back on error.
   """
 
-  alias Arcadex.{Conn, Client, Error}
+  alias Arcadex.{Client, Conn, Error}
 
   @doc """
   Execute function within a transaction.

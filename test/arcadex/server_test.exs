@@ -1,7 +1,7 @@
 defmodule Arcadex.ServerTest do
   use ExUnit.Case, async: true
 
-  alias Arcadex.{Server, Conn, Error}
+  alias Arcadex.{Conn, Error, Server}
 
   setup do
     bypass = Bypass.open()

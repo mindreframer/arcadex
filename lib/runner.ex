@@ -1,4 +1,6 @@
 defmodule Runner do
+  @moduledoc false
+
   def sqlscript(db, script) do
     url = "http://localhost:2480/api/v1/command/#{db}"
     payload = %{language: "sqlscript", command: script}

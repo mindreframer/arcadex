@@ -37,7 +37,7 @@ defmodule Arcadex do
 
   """
 
-  alias Arcadex.{Conn, Query, Transaction, Server}
+  alias Arcadex.{Conn, Query, Server, Transaction}
 
   # Connection
 

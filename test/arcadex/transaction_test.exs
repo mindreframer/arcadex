@@ -1,7 +1,7 @@
 defmodule Arcadex.TransactionTest do
   use ExUnit.Case, async: true
 
-  alias Arcadex.{Transaction, Query, Conn, Error}
+  alias Arcadex.{Conn, Error, Query, Transaction}
 
   setup do
     bypass = Bypass.open()

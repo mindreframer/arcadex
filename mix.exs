@@ -28,7 +28,8 @@ defmodule Arcadex.MixProject do
     [
       {:req, "~> 0.5.0"},
       {:finch, "~> 0.18"},
-      {:bypass, "~> 2.1", only: :test}
+      {:bypass, "~> 2.1", only: :test},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 end

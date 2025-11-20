@@ -16,7 +16,7 @@ defmodule Arcadex.Query do
 
   """
 
-  alias Arcadex.{Conn, Client, Error}
+  alias Arcadex.{Client, Conn, Error}
 
   @type execute_opts :: [
           limit: pos_integer(),
