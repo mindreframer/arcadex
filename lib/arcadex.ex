@@ -205,6 +205,58 @@ defmodule Arcadex do
   @spec script!(Conn.t(), String.t(), map(), keyword()) :: list()
   defdelegate script!(conn, script, params \\ %{}, opts \\ []), to: Query
 
+  # Execute (multi-language)
+
+  @doc """
+  Execute command with explicit language.
+
+  Supports multiple query languages: sql, sqlscript, cypher, gremlin, graphql, mongo.
+  Returns `{:ok, results}` or `{:error, %Arcadex.Error{}}`.
+
+  ## Options
+
+    * `:limit` - Maximum number of results to return
+    * `:retries` - Number of retry attempts for transient failures
+    * `:serializer` - Result format: "record", "graph", or "studio"
+
+  ## Examples
+
+      {:ok, users} = Arcadex.execute(conn, "cypher",
+        "MATCH (n:User) RETURN n LIMIT 10"
+      )
+
+      {:ok, users} = Arcadex.execute(conn, "gremlin",
+        "g.V().hasLabel('User').limit(10)"
+      )
+
+      {:ok, result} = Arcadex.execute(conn, "graphql", \"""
+        {
+          users(limit: 10) {
+            name
+            email
+          }
+        }
+      \""")
+
+  """
+  @spec execute(Conn.t(), String.t(), String.t(), map(), keyword()) ::
+          {:ok, list()} | {:error, Arcadex.Error.t()}
+  defdelegate execute(conn, language, command, params \\ %{}, opts \\ []), to: Query
+
+  @doc """
+  Execute command with explicit language. Raises on error.
+
+  Returns the result list directly or raises `Arcadex.Error`.
+
+  ## Examples
+
+      Arcadex.execute!(conn, "cypher", "MATCH (n:User) RETURN n")
+      [%{"n" => %{"name" => "John"}}]
+
+  """
+  @spec execute!(Conn.t(), String.t(), String.t(), map(), keyword()) :: list()
+  defdelegate execute!(conn, language, command, params \\ %{}, opts \\ []), to: Query
+
   # Transactions
 
   @doc """

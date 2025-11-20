@@ -222,6 +222,74 @@ defmodule Arcadex.Query do
     end
   end
 
+  @doc """
+  Execute command with explicit language.
+
+  Supports multiple query languages: sql, sqlscript, cypher, gremlin, graphql, mongo.
+  Returns `{:ok, results}` or `{:error, %Arcadex.Error{}}`.
+
+  ## Parameters
+
+    * `conn` - Connection context
+    * `language` - Query language: "sql", "sqlscript", "cypher", "gremlin", "graphql", "mongo"
+    * `command` - Command string in the specified language
+    * `params` - Optional map of parameters (default: empty map)
+    * `opts` - Optional keyword list of options
+
+  ## Options
+
+    * `:limit` - Maximum number of results to return
+    * `:retries` - Number of retry attempts for transient failures
+    * `:serializer` - Result format: "record", "graph", or "studio"
+
+  ## Examples
+
+      iex> Arcadex.Query.execute(conn, "sql", "SELECT FROM User")
+      {:ok, [%{"@rid" => "#1:0", "name" => "John"}]}
+
+      iex> Arcadex.Query.execute(conn, "cypher", "MATCH (n:User) RETURN n LIMIT 10")
+      {:ok, [%{"n" => %{"name" => "John"}}]}
+
+      iex> Arcadex.Query.execute(conn, "gremlin", "g.V().hasLabel('User').limit(10)")
+      {:ok, [...]}
+
+      iex> Arcadex.Query.execute(conn, "graphql", "{users(limit: 10) {name}}")
+      {:ok, [...]}
+
+  """
+  @spec execute(Conn.t(), String.t(), String.t(), map(), execute_opts()) ::
+          {:ok, list()} | {:error, Error.t()}
+  def execute(%Conn{} = conn, language, command, params \\ %{}, opts \\ []) do
+    body = build_body(language, command, params, opts)
+
+    case Client.post(conn, "/api/v1/command/#{conn.database}", body) do
+      {:ok, %{"result" => result}} -> {:ok, result}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  @doc """
+  Execute command with explicit language. Raises on error.
+
+  Returns the result list directly or raises `Arcadex.Error`.
+
+  ## Examples
+
+      iex> Arcadex.Query.execute!(conn, "cypher", "MATCH (n:User) RETURN n")
+      [%{"n" => %{"name" => "John"}}]
+
+      iex> Arcadex.Query.execute!(conn, "sql", "INVALID SQL")
+      ** (Arcadex.Error) Syntax error
+
+  """
+  @spec execute!(Conn.t(), String.t(), String.t(), map(), execute_opts()) :: list()
+  def execute!(%Conn{} = conn, language, command, params \\ %{}, opts \\ []) do
+    case execute(conn, language, command, params, opts) do
+      {:ok, result} -> result
+      {:error, error} -> raise error
+    end
+  end
+
   # Private Functions
 
   @doc false
