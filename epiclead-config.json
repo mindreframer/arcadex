@@ -1,0 +1,21 @@
+{
+    "project_cwd": ".",
+    "dev_template_path": "@meta/@epiclead/templates/epic-dev.md",
+    "judge_template_path": "@meta/@epiclead/templates/epic-judge.md",
+    "exec_path_pattern": "@meta/@pm/epics/{EPIC_ID}_exec.md",
+    "lmstudio": {
+        "max_tokens": 50,
+        "model": "qwen/qwen3-4b-2507",
+        "temperature": 0.1,
+        "url": "http://localhost:1234"
+    },
+    "logging": {
+        "log_path": "logs/epic-lead-{APP}-{EPIC_ID}.log",
+        "level": "info"
+    },
+    "output_dir": "tmp/prompts",
+    "sessions": {
+        "naming": "{prefix}-{APP}-{EPIC_ID}-{ROLE}",
+        "prefix": "epic"
+    }
+}
