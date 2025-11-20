@@ -21,7 +21,8 @@ defmodule Arcadex.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:req, "~> 0.5.0"}
+      {:req, "~> 0.5.0"},
+      {:bypass, "~> 2.1", only: :test}
     ]
   end
 end
