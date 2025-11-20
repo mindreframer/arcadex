@@ -23,6 +23,126 @@ defmodule Arcadex.Migrator do
 
   alias Arcadex.Conn
 
+  # Public API (Phase ARX003_3A)
+
+  @doc """
+  Run all pending migrations.
+
+  Returns `{:ok, count}` where count is the number of migrations run,
+  or `{:error, error}` if a migration fails.
+
+  ## Example
+
+      {:ok, 2} = Arcadex.Migrator.migrate(conn, MyApp.ArcMigrations)
+
+  """
+  @spec migrate(Conn.t(), module()) :: {:ok, non_neg_integer()} | {:error, Arcadex.Error.t()}
+  def migrate(%Conn{} = conn, registry) when is_atom(registry) do
+    ensure_migrations_table(conn)
+
+    applied = get_applied_versions(conn)
+    pending = get_pending_migrations(registry, applied)
+
+    if pending == [] do
+      {:ok, 0}
+    else
+      run_migrations(pending, conn, :up)
+    end
+  end
+
+  @doc """
+  Rollback last n migrations.
+
+  Returns `{:ok, count}` where count is the number of migrations rolled back,
+  or `{:error, error}` if a rollback fails.
+
+  ## Example
+
+      {:ok, 1} = Arcadex.Migrator.rollback(conn, MyApp.ArcMigrations, 1)
+
+  """
+  @spec rollback(Conn.t(), module(), pos_integer()) ::
+          {:ok, non_neg_integer()} | {:error, Arcadex.Error.t()}
+  def rollback(%Conn{} = conn, registry, n \\ 1)
+      when is_atom(registry) and is_integer(n) and n > 0 do
+    ensure_migrations_table(conn)
+
+    applied = get_applied_versions(conn)
+    to_rollback = get_rollback_migrations(registry, applied, n)
+
+    if to_rollback == [] do
+      {:ok, 0}
+    else
+      run_migrations(to_rollback, conn, :down)
+    end
+  end
+
+  @doc """
+  Get migration status.
+
+  Returns `{:ok, status_list}` where status_list contains a map for each
+  migration with version, name, and status (:applied or :pending).
+
+  ## Example
+
+      {:ok, status} = Arcadex.Migrator.status(conn, MyApp.ArcMigrations)
+      # [
+      #   %{version: 1, name: "V001InitialSetup", status: :applied},
+      #   %{version: 2, name: "V002AddTTSSettings", status: :pending}
+      # ]
+
+  """
+  @spec status(Conn.t(), module()) ::
+          {:ok, [%{version: pos_integer(), name: String.t(), status: :applied | :pending}]}
+  def status(%Conn{} = conn, registry) when is_atom(registry) do
+    ensure_migrations_table(conn)
+
+    applied = get_applied_versions(conn)
+    all_migrations = registry.migrations()
+
+    status_list =
+      Enum.map(all_migrations, fn mod ->
+        version = mod.version()
+
+        %{
+          version: version,
+          name: module_name(mod),
+          status: if(version in applied, do: :applied, else: :pending)
+        }
+      end)
+
+    {:ok, status_list}
+  end
+
+  @doc """
+  Rollback all migrations, then migrate all.
+
+  Returns `{:ok, count}` where count is the number of migrations applied,
+  or `{:error, error}` if any operation fails.
+
+  ## Example
+
+      {:ok, 3} = Arcadex.Migrator.reset(conn, MyApp.ArcMigrations)
+
+  """
+  @spec reset(Conn.t(), module()) :: {:ok, non_neg_integer()} | {:error, Arcadex.Error.t()}
+  def reset(%Conn{} = conn, registry) when is_atom(registry) do
+    ensure_migrations_table(conn)
+
+    applied = get_applied_versions(conn)
+
+    # Rollback all in reverse order
+    if length(applied) > 0 do
+      case rollback(conn, registry, length(applied)) do
+        {:ok, _} -> :ok
+        {:error, error} -> {:error, error}
+      end
+    end
+
+    # Migrate all
+    migrate(conn, registry)
+  end
+
   # Core Functions (Phase ARX003_2A)
 
   @doc """
@@ -158,5 +278,18 @@ defmodule Arcadex.Migrator do
     mod
     |> Module.split()
     |> List.last()
+  end
+
+  # Private helper for running multiple migrations
+
+  @spec run_migrations([module()], Conn.t(), :up | :down) ::
+          {:ok, non_neg_integer()} | {:error, Arcadex.Error.t()}
+  defp run_migrations(migrations, conn, direction) do
+    Enum.reduce_while(migrations, {:ok, 0}, fn mod, {:ok, count} ->
+      case run_one(conn, mod, direction) do
+        :ok -> {:cont, {:ok, count + 1}}
+        {:error, error} -> {:halt, {:error, error}}
+      end
+    end)
   end
 end

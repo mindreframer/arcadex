@@ -3,6 +3,9 @@ defmodule Arcadex.MigrationRegistryTest do
 
   describe "ARX003_1A: Migration registry tests" do
     test "ARX003_1A_T3: registry module with migrations macro" do
+      # Ensure module is loaded before checking exports
+      Code.ensure_loaded!(Arcadex.TestMigrations)
+
       # The test registry module compiles and implements the behaviour
       assert function_exported?(Arcadex.TestMigrations, :migrations, 0)
     end

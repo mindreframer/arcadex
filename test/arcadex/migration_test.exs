@@ -3,6 +3,9 @@ defmodule Arcadex.MigrationTest do
 
   describe "ARX003_1A: Migration behaviour tests" do
     test "ARX003_1A_T1: migration module implements behaviour" do
+      # Ensure module is loaded before checking exports
+      Code.ensure_loaded!(Arcadex.TestMigrations.V001CreateUser)
+
       # The test migration module compiles and implements the behaviour
       assert function_exported?(Arcadex.TestMigrations.V001CreateUser, :version, 0)
       assert function_exported?(Arcadex.TestMigrations.V001CreateUser, :up, 1)
