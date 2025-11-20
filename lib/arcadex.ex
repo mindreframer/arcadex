@@ -86,6 +86,11 @@ defmodule Arcadex do
 
   Returns `{:ok, results}` or `{:error, %Arcadex.Error{}}`.
 
+  ## Options
+
+    * `:limit` - Maximum number of results to return
+    * `:serializer` - Result format: "record", "graph", or "studio"
+
   ## Examples
 
       Arcadex.query(conn, "SELECT FROM User WHERE active = true")
@@ -94,9 +99,13 @@ defmodule Arcadex do
       Arcadex.query(conn, "SELECT FROM User WHERE age > :age", %{age: 21})
       {:ok, [%{"@rid" => "#1:0", "name" => "John", "age" => 25}]}
 
+      Arcadex.query(conn, "SELECT FROM User", %{}, limit: 100)
+      {:ok, [...]}
+
   """
-  @spec query(Conn.t(), String.t(), map()) :: {:ok, list()} | {:error, Arcadex.Error.t()}
-  defdelegate query(conn, sql, params \\ %{}), to: Query
+  @spec query(Conn.t(), String.t(), map(), keyword()) ::
+          {:ok, list()} | {:error, Arcadex.Error.t()}
+  defdelegate query(conn, sql, params \\ %{}, opts \\ []), to: Query
 
   @doc """
   Execute a read query. Raises on error.
@@ -109,13 +118,19 @@ defmodule Arcadex do
       [%{"@rid" => "#1:0", "name" => "John"}]
 
   """
-  @spec query!(Conn.t(), String.t(), map()) :: list()
-  defdelegate query!(conn, sql, params \\ %{}), to: Query
+  @spec query!(Conn.t(), String.t(), map(), keyword()) :: list()
+  defdelegate query!(conn, sql, params \\ %{}, opts \\ []), to: Query
 
   @doc """
   Execute a write command (INSERT/UPDATE/DELETE/DDL).
 
   Returns `{:ok, results}` or `{:error, %Arcadex.Error{}}`.
+
+  ## Options
+
+    * `:limit` - Maximum number of results to return
+    * `:retries` - Number of retry attempts for transient failures
+    * `:serializer` - Result format: "record", "graph", or "studio"
 
   ## Examples
 
@@ -125,9 +140,13 @@ defmodule Arcadex do
       Arcadex.command(conn, "INSERT INTO User SET name = :name", %{name: "Jane"})
       {:ok, [%{"@rid" => "#1:1", "name" => "Jane"}]}
 
+      Arcadex.command(conn, "INSERT INTO User SET name = 'John'", %{}, retries: 3)
+      {:ok, [%{"@rid" => "#1:0", "name" => "John"}]}
+
   """
-  @spec command(Conn.t(), String.t(), map()) :: {:ok, list()} | {:error, Arcadex.Error.t()}
-  defdelegate command(conn, sql, params \\ %{}), to: Query
+  @spec command(Conn.t(), String.t(), map(), keyword()) ::
+          {:ok, list()} | {:error, Arcadex.Error.t()}
+  defdelegate command(conn, sql, params \\ %{}, opts \\ []), to: Query
 
   @doc """
   Execute a write command. Raises on error.
@@ -140,8 +159,8 @@ defmodule Arcadex do
       [%{"@rid" => "#1:0", "name" => "John"}]
 
   """
-  @spec command!(Conn.t(), String.t(), map()) :: list()
-  defdelegate command!(conn, sql, params \\ %{}), to: Query
+  @spec command!(Conn.t(), String.t(), map(), keyword()) :: list()
+  defdelegate command!(conn, sql, params \\ %{}, opts \\ []), to: Query
 
   # Transactions
 

@@ -4,9 +4,26 @@ defmodule Arcadex.Query do
 
   Provides functions to execute read queries (SELECT) and write commands
   (INSERT/UPDATE/DELETE/DDL) against ArcadeDB.
+
+  ## Options
+
+  The following options can be passed to query/4 and command/4:
+
+    * `:limit` - Maximum number of results to return
+    * `:retries` - Number of retry attempts for transient failures
+    * `:serializer` - Result format: "record", "graph", or "studio"
+    * `:await_response` - If false, command returns immediately without waiting
+
   """
 
   alias Arcadex.{Conn, Client, Error}
+
+  @type execute_opts :: [
+          limit: pos_integer(),
+          retries: pos_integer(),
+          serializer: String.t(),
+          await_response: boolean()
+        ]
 
   @doc """
   Execute a read query (SELECT).
@@ -18,6 +35,12 @@ defmodule Arcadex.Query do
     * `conn` - Connection context
     * `sql` - SQL query string
     * `params` - Optional map of parameters (default: empty map)
+    * `opts` - Optional keyword list of options
+
+  ## Options
+
+    * `:limit` - Maximum number of results to return
+    * `:serializer` - Result format: "record", "graph", or "studio"
 
   ## Examples
 
@@ -27,11 +50,16 @@ defmodule Arcadex.Query do
       iex> Arcadex.Query.query(conn, "SELECT FROM User WHERE age > :age", %{age: 21})
       {:ok, [%{"@rid" => "#1:0", "name" => "John", "age" => 25}]}
 
+      iex> Arcadex.Query.query(conn, "SELECT FROM User", %{}, limit: 100)
+      {:ok, [...]}
+
+      iex> Arcadex.Query.query(conn, "SELECT FROM User", %{}, serializer: "graph")
+      {:ok, [...]}
+
   """
-  @spec query(Conn.t(), String.t(), map()) :: {:ok, list()} | {:error, Error.t()}
-  def query(%Conn{} = conn, sql, params \\ %{}) do
-    body = %{language: "sql", command: sql}
-    body = if map_size(params) > 0, do: Map.put(body, :params, params), else: body
+  @spec query(Conn.t(), String.t(), map(), execute_opts()) :: {:ok, list()} | {:error, Error.t()}
+  def query(%Conn{} = conn, sql, params \\ %{}, opts \\ []) do
+    body = build_body("sql", sql, params, opts)
 
     case Client.post(conn, "/api/v1/query/#{conn.database}", body) do
       {:ok, %{"result" => result}} -> {:ok, result}
@@ -53,9 +81,9 @@ defmodule Arcadex.Query do
       ** (Arcadex.Error) Syntax error
 
   """
-  @spec query!(Conn.t(), String.t(), map()) :: list()
-  def query!(%Conn{} = conn, sql, params \\ %{}) do
-    case query(conn, sql, params) do
+  @spec query!(Conn.t(), String.t(), map(), execute_opts()) :: list()
+  def query!(%Conn{} = conn, sql, params \\ %{}, opts \\ []) do
+    case query(conn, sql, params, opts) do
       {:ok, result} -> result
       {:error, error} -> raise error
     end
@@ -71,6 +99,13 @@ defmodule Arcadex.Query do
     * `conn` - Connection context
     * `sql` - SQL command string
     * `params` - Optional map of parameters (default: empty map)
+    * `opts` - Optional keyword list of options
+
+  ## Options
+
+    * `:limit` - Maximum number of results to return
+    * `:retries` - Number of retry attempts for transient failures
+    * `:serializer` - Result format: "record", "graph", or "studio"
 
   ## Examples
 
@@ -83,11 +118,14 @@ defmodule Arcadex.Query do
       iex> Arcadex.Query.command(conn, "INSERT INTO User SET name = :name", %{name: "Jane"})
       {:ok, [%{"@rid" => "#1:1", "name" => "Jane"}]}
 
+      iex> Arcadex.Query.command(conn, "INSERT INTO User SET name = 'John'", %{}, retries: 3)
+      {:ok, [%{"@rid" => "#1:0", "name" => "John"}]}
+
   """
-  @spec command(Conn.t(), String.t(), map()) :: {:ok, list()} | {:error, Error.t()}
-  def command(%Conn{} = conn, sql, params \\ %{}) do
-    body = %{language: "sql", command: sql}
-    body = if map_size(params) > 0, do: Map.put(body, :params, params), else: body
+  @spec command(Conn.t(), String.t(), map(), execute_opts()) ::
+          {:ok, list()} | {:error, Error.t()}
+  def command(%Conn{} = conn, sql, params \\ %{}, opts \\ []) do
+    body = build_body("sql", sql, params, opts)
 
     case Client.post(conn, "/api/v1/command/#{conn.database}", body) do
       {:ok, %{"result" => result}} -> {:ok, result}
@@ -109,11 +147,30 @@ defmodule Arcadex.Query do
       ** (Arcadex.Error) Syntax error
 
   """
-  @spec command!(Conn.t(), String.t(), map()) :: list()
-  def command!(%Conn{} = conn, sql, params \\ %{}) do
-    case command(conn, sql, params) do
+  @spec command!(Conn.t(), String.t(), map(), execute_opts()) :: list()
+  def command!(%Conn{} = conn, sql, params \\ %{}, opts \\ []) do
+    case command(conn, sql, params, opts) do
       {:ok, result} -> result
       {:error, error} -> raise error
+    end
+  end
+
+  # Private Functions
+
+  @doc false
+  @spec build_body(String.t(), String.t(), map(), execute_opts()) :: map()
+  def build_body(language, command, params, opts) do
+    body = %{language: language, command: command}
+
+    body = if map_size(params) > 0, do: Map.put(body, :params, params), else: body
+    body = if opts[:limit], do: Map.put(body, :limit, opts[:limit]), else: body
+    body = if opts[:retries], do: Map.put(body, :retries, opts[:retries]), else: body
+    body = if opts[:serializer], do: Map.put(body, :serializer, opts[:serializer]), else: body
+
+    if opts[:await_response] == false do
+      Map.put(body, :awaitResponse, false)
+    else
+      body
     end
   end
 end
