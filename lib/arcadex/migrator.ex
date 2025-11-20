@@ -63,7 +63,7 @@ defmodule Arcadex.Migrator do
   """
   @spec rollback(Conn.t(), module(), pos_integer()) ::
           {:ok, non_neg_integer()} | {:error, Arcadex.Error.t()}
-  def rollback(%Conn{} = conn, registry, n \\ 1)
+  def rollback(%Conn{} = conn, registry, n)
       when is_atom(registry) and is_integer(n) and n > 0 do
     ensure_migrations_table(conn)
 
@@ -141,6 +141,108 @@ defmodule Arcadex.Migrator do
 
     # Migrate all
     migrate(conn, registry)
+  end
+
+  # Config-based API (Phase ARX003_4A)
+
+  @doc """
+  Run all pending migrations using registry from config.
+
+  Uses the registry configured in `:arcadedb, :migrations`.
+
+  Returns `{:ok, count}` where count is the number of migrations run,
+  or `{:error, error}` if a migration fails.
+
+  ## Example
+
+      # In config.exs:
+      # config :arcadedb, :migrations, MyApp.ArcMigrations
+
+      {:ok, 2} = Arcadex.Migrator.migrate(conn)
+
+  """
+  @spec migrate(Conn.t()) :: {:ok, non_neg_integer()} | {:error, Arcadex.Error.t()}
+  def migrate(%Conn{} = conn) do
+    registry = Application.fetch_env!(:arcadedb, :migrations)
+    migrate(conn, registry)
+  end
+
+  @doc """
+  Rollback last migration using registry from config.
+
+  Uses the registry configured in `:arcadedb, :migrations`.
+
+  Returns `{:ok, count}` where count is the number of migrations rolled back,
+  or `{:error, error}` if a rollback fails.
+
+  ## Example
+
+      {:ok, 1} = Arcadex.Migrator.rollback(conn)
+
+  """
+  @spec rollback(Conn.t()) :: {:ok, non_neg_integer()} | {:error, Arcadex.Error.t()}
+  def rollback(%Conn{} = conn) do
+    registry = Application.fetch_env!(:arcadedb, :migrations)
+    rollback(conn, registry, 1)
+  end
+
+  @doc """
+  Rollback last n migrations using registry from config.
+
+  Uses the registry configured in `:arcadedb, :migrations`.
+
+  Returns `{:ok, count}` where count is the number of migrations rolled back,
+  or `{:error, error}` if a rollback fails.
+
+  ## Example
+
+      {:ok, 2} = Arcadex.Migrator.rollback(conn, 2)
+
+  """
+  @spec rollback(Conn.t(), pos_integer()) ::
+          {:ok, non_neg_integer()} | {:error, Arcadex.Error.t()}
+  def rollback(%Conn{} = conn, n) when is_integer(n) and n > 0 do
+    registry = Application.fetch_env!(:arcadedb, :migrations)
+    rollback(conn, registry, n)
+  end
+
+  @doc """
+  Get migration status using registry from config.
+
+  Uses the registry configured in `:arcadedb, :migrations`.
+
+  Returns `{:ok, status_list}` where status_list contains a map for each
+  migration with version, name, and status (:applied or :pending).
+
+  ## Example
+
+      {:ok, status} = Arcadex.Migrator.status(conn)
+
+  """
+  @spec status(Conn.t()) ::
+          {:ok, [%{version: pos_integer(), name: String.t(), status: :applied | :pending}]}
+  def status(%Conn{} = conn) do
+    registry = Application.fetch_env!(:arcadedb, :migrations)
+    status(conn, registry)
+  end
+
+  @doc """
+  Rollback all migrations, then migrate all, using registry from config.
+
+  Uses the registry configured in `:arcadedb, :migrations`.
+
+  Returns `{:ok, count}` where count is the number of migrations applied,
+  or `{:error, error}` if any operation fails.
+
+  ## Example
+
+      {:ok, 3} = Arcadex.Migrator.reset(conn)
+
+  """
+  @spec reset(Conn.t()) :: {:ok, non_neg_integer()} | {:error, Arcadex.Error.t()}
+  def reset(%Conn{} = conn) do
+    registry = Application.fetch_env!(:arcadedb, :migrations)
+    reset(conn, registry)
   end
 
   # Core Functions (Phase ARX003_2A)
