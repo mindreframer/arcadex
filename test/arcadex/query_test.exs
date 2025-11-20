@@ -91,7 +91,10 @@ defmodule Arcadex.QueryTest do
       Bypass.expect(bypass, "POST", "/api/v1/query/testdb", fn http_conn ->
         http_conn
         |> Plug.Conn.put_resp_content_type("application/json")
-        |> Plug.Conn.resp(400, Jason.encode!(%{"error" => "Syntax error", "detail" => "near 'INVALID'"}))
+        |> Plug.Conn.resp(
+          400,
+          Jason.encode!(%{"error" => "Syntax error", "detail" => "near 'INVALID'"})
+        )
       end)
 
       assert_raise Error, "Syntax error: near 'INVALID'", fn ->
