@@ -65,8 +65,11 @@ defmodule Arcadex.Transaction do
   """
   @spec begin_tx(Conn.t()) :: {:ok, String.t()} | {:error, Error.t()}
   def begin_tx(%Conn{} = conn) do
-    case Client.post(conn, "/api/v1/begin/#{conn.database}", %{}) do
-      {:ok, %{"result" => session_id}} -> {:ok, session_id}
+    body = %{isolationLevel: "READ_COMMITTED"}
+
+    case Client.post(conn, "/api/v1/begin/#{conn.database}", body) do
+      {:ok, %{"result" => session_id}} when is_binary(session_id) -> {:ok, session_id}
+      {:ok, %{}} -> {:error, %Error{message: "No session ID returned from begin"}}
       {:error, error} -> {:error, error}
     end
   end

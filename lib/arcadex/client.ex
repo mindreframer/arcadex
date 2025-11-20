@@ -25,26 +25,48 @@ defmodule Arcadex.Client do
     url = "#{conn.base_url}#{path}"
     headers = build_headers(conn)
 
-    case Req.post(url, json: body, headers: headers, finch: conn.finch_name, retry: false) do
-      {:ok, %{status: 200, body: response_body}} ->
-        {:ok, response_body}
+    conn
+    |> do_post(url, body, headers)
+    |> handle_response()
+  end
 
-      {:ok, %{status: status, body: %{"error" => error, "detail" => detail}}} ->
-        {:error, %Error{status: status, message: error, detail: detail}}
+  defp do_post(conn, url, body, headers) do
+    Req.post(url, json: body, headers: headers, finch: conn.finch_name, retry: false)
+  end
 
-      {:ok, %{status: status, body: %{"error" => error}}} ->
-        {:error, %Error{status: status, message: error, detail: nil}}
-
-      {:ok, %{status: status, body: response_body}} ->
-        {:error,
-         %Error{status: status, message: "HTTP #{status}", detail: inspect(response_body)}}
-
-      {:error, %Req.TransportError{reason: reason}} ->
-        {:error, %Error{message: "Connection failed", detail: inspect(reason)}}
-
-      {:error, reason} ->
-        {:error, %Error{message: "Request failed", detail: inspect(reason)}}
+  defp handle_response({:ok, %{status: 200, body: response_body, headers: resp_headers}}) do
+    case get_header(resp_headers, "arcadedb-session-id") do
+      nil -> {:ok, response_body}
+      session_id when response_body == %{} -> {:ok, %{"result" => session_id}}
+      _session_id -> {:ok, response_body}
     end
+  end
+
+  defp handle_response({:ok, %{status: 204, headers: resp_headers}}) do
+    case get_header(resp_headers, "arcadedb-session-id") do
+      nil -> {:ok, %{}}
+      session_id -> {:ok, %{"result" => session_id}}
+    end
+  end
+
+  defp handle_response({:ok, %{status: status, body: %{"error" => error, "detail" => detail}}}) do
+    {:error, %Error{status: status, message: error, detail: detail}}
+  end
+
+  defp handle_response({:ok, %{status: status, body: %{"error" => error}}}) do
+    {:error, %Error{status: status, message: error, detail: nil}}
+  end
+
+  defp handle_response({:ok, %{status: status, body: response_body}}) do
+    {:error, %Error{status: status, message: "HTTP #{status}", detail: inspect(response_body)}}
+  end
+
+  defp handle_response({:error, %Req.TransportError{reason: reason}}) do
+    {:error, %Error{message: "Connection failed", detail: inspect(reason)}}
+  end
+
+  defp handle_response({:error, reason}) do
+    {:error, %Error{message: "Request failed", detail: inspect(reason)}}
   end
 
   @doc """
@@ -102,5 +124,27 @@ defmodule Arcadex.Client do
   @spec basic_auth({String.t(), String.t()}) :: String.t()
   defp basic_auth({user, pass}) do
     "Basic " <> Base.encode64("#{user}:#{pass}")
+  end
+
+  @doc false
+  @spec get_header(map() | list(), String.t()) :: String.t() | nil
+  defp get_header(headers, name) when is_map(headers) do
+    # Req returns headers as a map with list values
+    name_downcase = String.downcase(name)
+
+    Enum.find_value(headers, fn {key, values} ->
+      if String.downcase(key) == name_downcase do
+        List.first(values)
+      end
+    end)
+  end
+
+  defp get_header(headers, name) when is_list(headers) do
+    # Handle list of tuples format
+    name_downcase = String.downcase(name)
+
+    Enum.find_value(headers, fn {key, value} ->
+      if String.downcase(key) == name_downcase, do: value
+    end)
   end
 end
