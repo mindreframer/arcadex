@@ -14,7 +14,8 @@ defmodule Arcadex.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {Arcadex.Application, []}
     ]
   end
 
@@ -22,6 +23,7 @@ defmodule Arcadex.MixProject do
   defp deps do
     [
       {:req, "~> 0.5.0"},
+      {:finch, "~> 0.18"},
       {:bypass, "~> 2.1", only: :test}
     ]
   end

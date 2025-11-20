@@ -1,18 +1,233 @@
 defmodule Arcadex do
   @moduledoc """
-  Documentation for `Arcadex`.
+  ArcadeDB Elixir Client.
+
+  A lean Elixir wrapper for ArcadeDB's REST API with connection pooling,
+  transactions, and database switching.
+
+  ## Quick Start
+
+      # Create connection
+      conn = Arcadex.connect("http://localhost:2480", "mydb",
+        auth: {"root", "password"}
+      )
+
+      # Query
+      {:ok, users} = Arcadex.query(conn, "SELECT FROM User WHERE active = true")
+
+      # Command with params
+      {:ok, [user]} = Arcadex.command(conn,
+        "INSERT INTO User SET name = :name, email = :email",
+        %{name: "John", email: "john@example.com"}
+      )
+
+      # Transaction
+      {:ok, result} = Arcadex.transaction(conn, fn tx ->
+        user = Arcadex.command!(tx, "INSERT INTO User SET name = 'Jane'")
+        Arcadex.command!(tx, "INSERT INTO Log SET action = 'created', user = :rid",
+          %{rid: user["@rid"]}
+        )
+        user
+      end)
+
+      # Database management
+      Arcadex.create_database!(conn, "newdb")
+      conn2 = Arcadex.with_database(conn, "newdb")
+      Arcadex.drop_database!(conn, "newdb")
+
   """
 
+  alias Arcadex.{Conn, Query, Transaction, Server}
+
+  # Connection
+
   @doc """
-  Hello world.
+  Create a new connection context.
+
+  ## Options
+
+    * `:auth` - Tuple of `{username, password}`. Defaults to `{"root", "root"}`.
+    * `:finch` - Finch pool name. Defaults to `Arcadex.Finch`.
 
   ## Examples
 
-      iex> Arcadex.hello()
-      :world
+      iex> conn = Arcadex.connect("http://localhost:2480", "mydb")
+      iex> conn.database
+      "mydb"
+
+      iex> conn = Arcadex.connect("http://localhost:2480", "mydb", auth: {"admin", "pass"})
+      iex> conn.auth
+      {"admin", "pass"}
 
   """
-  def hello do
-    :world
-  end
+  @spec connect(String.t(), String.t(), keyword()) :: Conn.t()
+  defdelegate connect(base_url, database, opts \\ []), to: Conn, as: :new
+
+  @doc """
+  Return new conn with different database (same pool).
+
+  Clears any existing session_id since sessions are database-specific.
+
+  ## Examples
+
+      iex> conn = Arcadex.connect("http://localhost:2480", "db1")
+      iex> conn2 = Arcadex.with_database(conn, "db2")
+      iex> conn2.database
+      "db2"
+
+  """
+  @spec with_database(Conn.t(), String.t()) :: Conn.t()
+  defdelegate with_database(conn, database), to: Conn
+
+  # Query/Command
+
+  @doc """
+  Execute a read query (SELECT).
+
+  Returns `{:ok, results}` or `{:error, %Arcadex.Error{}}`.
+
+  ## Examples
+
+      Arcadex.query(conn, "SELECT FROM User WHERE active = true")
+      {:ok, [%{"@rid" => "#1:0", "name" => "John", "active" => true}]}
+
+      Arcadex.query(conn, "SELECT FROM User WHERE age > :age", %{age: 21})
+      {:ok, [%{"@rid" => "#1:0", "name" => "John", "age" => 25}]}
+
+  """
+  @spec query(Conn.t(), String.t(), map()) :: {:ok, list()} | {:error, Arcadex.Error.t()}
+  defdelegate query(conn, sql, params \\ %{}), to: Query
+
+  @doc """
+  Execute a read query. Raises on error.
+
+  Returns the result list directly or raises `Arcadex.Error`.
+
+  ## Examples
+
+      Arcadex.query!(conn, "SELECT FROM User")
+      [%{"@rid" => "#1:0", "name" => "John"}]
+
+  """
+  @spec query!(Conn.t(), String.t(), map()) :: list()
+  defdelegate query!(conn, sql, params \\ %{}), to: Query
+
+  @doc """
+  Execute a write command (INSERT/UPDATE/DELETE/DDL).
+
+  Returns `{:ok, results}` or `{:error, %Arcadex.Error{}}`.
+
+  ## Examples
+
+      Arcadex.command(conn, "INSERT INTO User SET name = 'John'")
+      {:ok, [%{"@rid" => "#1:0", "name" => "John"}]}
+
+      Arcadex.command(conn, "INSERT INTO User SET name = :name", %{name: "Jane"})
+      {:ok, [%{"@rid" => "#1:1", "name" => "Jane"}]}
+
+  """
+  @spec command(Conn.t(), String.t(), map()) :: {:ok, list()} | {:error, Arcadex.Error.t()}
+  defdelegate command(conn, sql, params \\ %{}), to: Query
+
+  @doc """
+  Execute a write command. Raises on error.
+
+  Returns the result list directly or raises `Arcadex.Error`.
+
+  ## Examples
+
+      Arcadex.command!(conn, "INSERT INTO User SET name = 'John'")
+      [%{"@rid" => "#1:0", "name" => "John"}]
+
+  """
+  @spec command!(Conn.t(), String.t(), map()) :: list()
+  defdelegate command!(conn, sql, params \\ %{}), to: Query
+
+  # Transactions
+
+  @doc """
+  Execute function within a transaction.
+
+  Auto-commits on success, rolls back on error.
+  Returns `{:ok, result}` or `{:error, %Arcadex.Error{}}`.
+
+  ## Examples
+
+      {:ok, user} = Arcadex.transaction(conn, fn tx ->
+        user = Arcadex.command!(tx, "INSERT INTO User SET name = 'John'")
+        Arcadex.command!(tx, "INSERT INTO Log SET user = :rid", %{rid: user["@rid"]})
+        user
+      end)
+
+  """
+  @spec transaction(Conn.t(), (Conn.t() -> any())) :: {:ok, any()} | {:error, Arcadex.Error.t()}
+  defdelegate transaction(conn, fun), to: Transaction
+
+  # Server management
+
+  @doc """
+  Create a new database.
+
+  Returns `:ok` on success or `{:error, %Arcadex.Error{}}` on failure.
+
+  ## Examples
+
+      Arcadex.create_database(conn, "newdb")
+      :ok
+
+  """
+  @spec create_database(Conn.t(), String.t()) :: :ok | {:error, Arcadex.Error.t()}
+  defdelegate create_database(conn, name), to: Server
+
+  @doc """
+  Create a new database. Raises on error.
+
+  ## Examples
+
+      Arcadex.create_database!(conn, "newdb")
+      :ok
+
+  """
+  @spec create_database!(Conn.t(), String.t()) :: :ok
+  defdelegate create_database!(conn, name), to: Server
+
+  @doc """
+  Drop a database.
+
+  Returns `:ok` on success or `{:error, %Arcadex.Error{}}` on failure.
+
+  ## Examples
+
+      Arcadex.drop_database(conn, "olddb")
+      :ok
+
+  """
+  @spec drop_database(Conn.t(), String.t()) :: :ok | {:error, Arcadex.Error.t()}
+  defdelegate drop_database(conn, name), to: Server
+
+  @doc """
+  Drop a database. Raises on error.
+
+  ## Examples
+
+      Arcadex.drop_database!(conn, "olddb")
+      :ok
+
+  """
+  @spec drop_database!(Conn.t(), String.t()) :: :ok
+  defdelegate drop_database!(conn, name), to: Server
+
+  @doc """
+  Check if database exists.
+
+  Returns `true` if the database exists, `false` otherwise.
+
+  ## Examples
+
+      Arcadex.database_exists?(conn, "mydb")
+      true
+
+  """
+  @spec database_exists?(Conn.t(), String.t()) :: boolean()
+  defdelegate database_exists?(conn, name), to: Server
 end
